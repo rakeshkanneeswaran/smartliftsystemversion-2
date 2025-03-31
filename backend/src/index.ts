@@ -24,6 +24,8 @@ server.get('/', async (request, reply) => {
     return { message: 'WebSocket server running' };
 });
 
+
+
 // Socket.IO connection handler
 server.ready().then(() => {
     server.io.on('connection', (socket: Socket) => {
@@ -70,9 +72,12 @@ server.ready().then(() => {
 // Start server
 const start = async () => {
     try {
-        const PORT = process.env.PORT || 3002;
-        await server.listen({ port: PORT as number });
-        server.log.info(`Server listening on 3000`);
+        const PORT = 3002;
+        await server.listen({
+            port: PORT as number,
+            host: '0.0.0.0',  // ← Critical for Docker
+        });
+        server.log.info(`Server listening on 3002`);
     } catch (err) {
         server.log.error(err);
         process.exit(1);
