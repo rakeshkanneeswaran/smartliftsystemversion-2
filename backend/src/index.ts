@@ -7,9 +7,10 @@ import path from 'path';
 
 // Add at the top of your file
 const httpsOptions = {
-    key: fs.readFileSync(path.join(__dirname, 'key.pem')),
-    cert: fs.readFileSync(path.join(__dirname, 'cert.pem'))
+    key: fs.readFileSync(path.join(process.cwd(), 'key.pem')),
+    cert: fs.readFileSync(path.join(process.cwd(), 'cert.pem'))
 };
+
 
 const liveWebClients = new Set<Socket>();
 
