@@ -2,6 +2,14 @@ import fastify, { FastifyInstance, FastifyLoggerInstance } from 'fastify';
 import fastifyIO from 'fastify-socket.io';
 import { Server, Socket } from 'socket.io';
 import { calculateOptimalLiftStops } from './k-means';
+import fs from 'fs';
+import path from 'path';
+
+// Add at the top of your file
+const httpsOptions = {
+    key: fs.readFileSync(path.join(__dirname, 'key.pem')),
+    cert: fs.readFileSync(path.join(__dirname, 'cert.pem'))
+};
 
 const liveWebClients = new Set<Socket>();
 
@@ -11,7 +19,10 @@ declare module 'fastify' {
         io: Server;
     }
 }
-const server: FastifyInstance = fastify({ logger: true });
+const server: FastifyInstance = fastify({
+    logger: true,
+    https: httpsOptions  // Add this line
+});
 server.register(fastifyIO, {
     cors: {
         origin: "*", // Allow all origins (change in production)
