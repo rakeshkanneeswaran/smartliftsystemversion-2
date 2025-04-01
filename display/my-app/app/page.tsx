@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { io } from "socket.io-client";
 
 const socket = io(
@@ -19,28 +19,52 @@ export default function LiftControl() {
   const [recentlyClicked, setRecentlyClicked] = useState<number | null>(null);
   const [disableInputs, setDisableInputs] = useState(false);
 
+  // Use ref to store the latest values
+  const selectedFloorsRef = useRef(selectedFloors);
+  const kRef = useRef(k);
+
   useEffect(() => {
-    socket.on("connect", () => console.log("Connected"));
-    socket.on("done", () => {
-      socket.emit(
-        "request stops",
-        JSON.stringify({ floors: selectedFloors, k })
-      );
-      setSelectedFloors([]);
-    });
-    socket.on("toggle input", (status: string) =>
-      setDisableInputs(JSON.parse(status))
-    );
-    socket.on("optimal stops", (stops: number[]) => {
+    selectedFloorsRef.current = selectedFloors;
+    kRef.current = k;
+  }, [selectedFloors, k]);
+
+  useEffect(() => {
+    const handleConnect = () => console.log("Connected");
+
+    const handleDone = () => {
+      if (selectedFloorsRef.current.length > 0) {
+        socket.emit(
+          "request stops",
+          JSON.stringify({
+            floors: selectedFloorsRef.current,
+            k: kRef.current,
+          })
+        );
+        setSelectedFloors([]);
+      }
+    };
+
+    const handleToggleInput = (status: string) => {
+      setDisableInputs(JSON.parse(status));
+    };
+
+    const handleOptimalStops = (stops: number[]) => {
       setOptimalStops(stops);
       setSelectedFloors([]);
-    });
+    };
+
+    socket.on("connect", handleConnect);
+    socket.on("done", handleDone);
+    socket.on("toggle input", handleToggleInput);
+    socket.on("optimal stops", handleOptimalStops);
 
     return () => {
-      socket.off("optimal stops");
-      socket.off("connect");
+      socket.off("connect", handleConnect);
+      socket.off("done", handleDone);
+      socket.off("toggle input", handleToggleInput);
+      socket.off("optimal stops", handleOptimalStops);
     };
-  }, [selectedFloors, k]);
+  }, []);
 
   const toggleFloor = (floor: number) => {
     if (disableInputs) return;
