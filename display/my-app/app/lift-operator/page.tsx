@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { io } from "socket.io-client";
 
 const socket = io(
-  "ws://ec2-3-111-53-110.ap-south-1.compute.amazonaws.com:3002",
+  "ws://ec2-43-204-230-249.ap-south-1.compute.amazonaws.com:3002",
   {
     reconnection: true,
     reconnectionAttempts: Infinity,
