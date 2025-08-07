@@ -6,7 +6,7 @@ resource "aws_instance" "lift-backend" {
     Name = "lift-backend-terraform"
   }
 
-  security_groups = [aws_security_group.lift_sg.name]
+  security_groups = [aws_security_group.lift_backend_sg.name]
 
   user_data = <<-EOF
 #!/bin/bash
@@ -56,7 +56,7 @@ EOF
 }
 
 
-resource "aws_security_group" "lift_sg" {
+resource "aws_security_group" "lift_backend_sg" {
   name        = "lift-backend-sg"
   description = "Security group for Lift Backend"
 

@@ -3,10 +3,10 @@ resource "aws_instance" "lift-frontend" {
   ami           = "ami-0e35ddab05955cf57"
   instance_type = "t2.micro"
   tags = {
-    Name = "lift-backend-terraform"
+    Name = "lift-frontend-terraform"
   }
 
-  security_groups = [aws_security_group.lift_sg.name]
+  security_groups = [aws_security_group.lift_frontend_sg.name]
 
   user_data = <<-EOF
 #!/bin/bash
@@ -25,7 +25,7 @@ sudo npm install -g pnpm
 
 # Clone the repository (use HTTPS or SSH)
 git clone https://github.com/rakeshkanneeswaran/smartliftsystemversion-2.git /home/ubuntu/app
-cd /home/ubuntu/app/backend
+cd /home/ubuntu/app/display/my-app
 
 # Install dependencies
 pnpm install
@@ -33,12 +33,8 @@ pnpm install
 # Install PM2 globally
 sudo npm install -g pm2
 
-# Start the application (use absolute paths)
-pm2 start pnpm --name "lift-backend" -- start
 
-# Configure PM2 to start on boot
-pm2 startup | grep -v "sudo" | bash
-pm2 save
+
 
 # Verify installations
 echo "Node.js version: $(node -v)"
@@ -56,9 +52,11 @@ EOF
 }
 
 
-resource "aws_security_group" "lift_sg" {
-  name        = "lift-backend-sg"
-  description = "Security group for Lift Backend"
+
+
+resource "aws_security_group" "lift_frontend_sg" {
+  name        = "lift-frontend-sg"
+  description = "Security group for Lift Frontend"
 
   ingress {
     from_port   = 22
@@ -89,6 +87,6 @@ resource "aws_security_group" "lift_sg" {
   }
 
   tags = {
-    Name = "lift-backend-security-group"
+    Name = "lift-frontend-security-group"
   }
 }
