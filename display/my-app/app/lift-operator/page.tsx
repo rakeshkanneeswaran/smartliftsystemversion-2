@@ -3,14 +3,11 @@
 import { useEffect, useState } from "react";
 import { io } from "socket.io-client";
 
-const socket = io(
-  "ws://ec2-13-235-33-26.ap-south-1.compute.amazonaws.com:3002",
-  {
-    reconnection: true,
-    reconnectionAttempts: Infinity,
-    reconnectionDelay: 1000,
-  }
-);
+const socket = io("ws://ec2-34-204-40-134.compute-1.amazonaws.com:3002", {
+  reconnection: true,
+  reconnectionAttempts: Infinity,
+  reconnectionDelay: 1000,
+});
 
 export default function LiftOperator() {
   const [isStopped, setIsStopped] = useState(false);
