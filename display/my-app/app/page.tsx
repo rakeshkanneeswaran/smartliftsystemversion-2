@@ -1,159 +1,97 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
-import { io } from "socket.io-client";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { AUTH_CONFIG, Role } from "@/app/config/auth";
 
-const socket = io("ws://ec2-3-87-237-75.compute-1.amazonaws.com:3002", {
-  reconnection: true,
-  reconnectionAttempts: Infinity,
-  reconnectionDelay: 1000,
-});
+export default function LandingPage() {
+  const router = useRouter();
 
-export default function LiftControl() {
-  const [selectedFloors, setSelectedFloors] = useState<number[]>([]);
-  const [k, setK] = useState(3);
-  const [optimalStops, setOptimalStops] = useState<number[]>([]);
-  const [recentlyClicked, setRecentlyClicked] = useState<number | null>(null);
-  const [disableInputs, setDisableInputs] = useState(false);
+  const [role, setRole] = useState<Role | null>(null);
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
 
-  // Use ref to store the latest values
-  const selectedFloorsRef = useRef(selectedFloors);
-  const kRef = useRef(k);
+  const handleLogin = () => {
+    if (!role) {
+      setError("Please select a system first");
+      return;
+    }
 
-  useEffect(() => {
-    selectedFloorsRef.current = selectedFloors;
-    kRef.current = k;
-  }, [selectedFloors, k]);
+    const config = AUTH_CONFIG[role];
 
-  useEffect(() => {
-    const handleConnect = () => console.log("Connected");
+    if (username !== config.username || password !== config.password) {
+      setError("Invalid credentials for selected system");
+      return;
+    }
 
-    const handleDone = () => {
-      if (selectedFloorsRef.current.length > 0) {
-        socket.emit(
-          "request stops",
-          JSON.stringify({
-            floors: selectedFloorsRef.current,
-            k: kRef.current,
-          })
-        );
-        setSelectedFloors([]);
-      }
-    };
+    // ✅ mark authenticated
+    sessionStorage.setItem("auth_ok", "true");
+    sessionStorage.setItem("role", role);
 
-    const handleToggleInput = (status: string) => {
-      setDisableInputs(JSON.parse(status));
-    };
-
-    const handleOptimalStops = (stops: number[]) => {
-      setOptimalStops(stops);
-      setSelectedFloors([]);
-    };
-
-    socket.on("connect", handleConnect);
-    socket.on("done", handleDone);
-    socket.on("toggle input", handleToggleInput);
-    socket.on("optimal stops", handleOptimalStops);
-
-    return () => {
-      socket.off("connect", handleConnect);
-      socket.off("done", handleDone);
-      socket.off("toggle input", handleToggleInput);
-      socket.off("optimal stops", handleOptimalStops);
-    };
-  }, []);
-
-  const toggleFloor = (floor: number) => {
-    if (disableInputs) return;
-    setRecentlyClicked(floor);
-    setSelectedFloors((prev) => [...prev, floor]);
-    setTimeout(() => setRecentlyClicked(null), 300);
+    router.push(config.redirect);
   };
 
   return (
-    <div className="flex flex-col h-screen bg-gray-900 text-white p-4">
-      {/* Header */}
-      <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-blue-500 mb-6 text-center">
-        SMART LIFT CONTROL
-      </h1>
+    <div className="flex items-center justify-center h-screen bg-slate-100">
+      <div className="w-full max-w-md bg-white rounded-xl shadow p-6">
+        <h1 className="text-2xl font-semibold text-center mb-6">
+          Smart Lift System
+        </h1>
 
-      {/* Main Content */}
-      <div className="flex flex-1 gap-6">
-        {/* Left Panel - System Configuration */}
-        <div className="w-1/3 flex flex-col">
-          <div className="bg-gray-800 rounded-xl p-4 flex-1">
-            <div className="text-xl font-bold text-gray-300 mb-6">
-              SYSTEM CONFIGURATION
-            </div>
-
-            <div className="mb-8">
-              <div className="text-4xl font-bold text-blue-400 text-center">
-                {selectedFloors.length}
-              </div>
-              <div className="text-lg text-gray-400 text-center">
-                {selectedFloors.length === 1 ? "PERSON" : "PEOPLE"}
-              </div>
-            </div>
-
-            <div className="mb-6">
-              <label className="block text-lg text-gray-400 mb-2">
-                OPTIMAL STOPS:
-              </label>
-              <select
-                className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                value={k}
-                onChange={(e) => setK(Number(e.target.value))}
-              >
-                {[1, 2, 3].map((val) => (
-                  <option key={val} value={val}>
-                    {val}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {optimalStops.length > 0 && (
-              <div className="mt-auto bg-blue-900/30 border border-blue-700 rounded-lg p-4">
-                <div className="text-lg font-medium text-blue-300 mb-2">
-                  OPTIMAL STOPS
-                </div>
-                <div className="text-3xl font-bold text-white">
-                  {optimalStops.join(", ")}
-                </div>
-              </div>
-            )}
-
-            {disableInputs && (
-              <div className="mt-4 text-amber-300 font-medium text-lg animate-pulse text-center">
-                PROCESSING...
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Right Panel - Floor Buttons */}
-        <div className="flex-1 grid grid-cols-3 gap-4">
-          {Array.from({ length: 15 }, (_, i) => i + 1).map((floor) => (
+        {/* Step 1: Select Mode */}
+        <div className="mb-6 space-y-3">
+          {Object.entries(AUTH_CONFIG).map(([key, cfg]) => (
             <button
-              key={floor}
-              disabled={disableInputs}
-              className={`rounded-2xl text-3xl font-bold transition-all duration-200 flex items-center justify-center h-full ${
-                recentlyClicked === floor
-                  ? "bg-green-500 scale-95 shadow-lg"
-                  : selectedFloors.includes(floor)
-                  ? "bg-blue-600 shadow-md"
-                  : "bg-gray-700 hover:bg-gray-600 shadow"
-              } ${
-                disableInputs
-                  ? "opacity-50 cursor-not-allowed"
-                  : "cursor-pointer"
+              key={key}
+              onClick={() => {
+                setRole(key as Role);
+                setError(null);
+              }}
+              className={`w-full py-2 rounded-lg border font-medium transition ${
+                role === key
+                  ? "bg-blue-600 text-white"
+                  : "bg-slate-50 hover:bg-slate-100"
               }`}
-              onClick={() => toggleFloor(floor)}
             >
-              {floor}
+              {cfg.label}
             </button>
           ))}
         </div>
+
+        {/* Step 2: Credentials */}
+        {role && (
+          <div className="space-y-4 mb-4">
+            <input
+              placeholder="Username"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              className="w-full border rounded-lg px-3 py-2"
+            />
+
+            <input
+              type="password"
+              placeholder="Password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full border rounded-lg px-3 py-2"
+            />
+          </div>
+        )}
+
+        {/* Error */}
+        {error && (
+          <div className="text-red-600 text-sm mb-4 text-center">{error}</div>
+        )}
+
+        {/* Continue */}
+        <button
+          onClick={handleLogin}
+          disabled={!role}
+          className="w-full bg-black text-white py-2 rounded-lg font-semibold disabled:opacity-50"
+        >
+          Continue
+        </button>
       </div>
     </div>
   );

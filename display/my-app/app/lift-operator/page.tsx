@@ -1,207 +1,210 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { io } from "socket.io-client";
+import { socket } from "@/app/config/socket";
+import { useSocketHeartbeat } from "@/app/hooks/useSocketHeartbeat";
+import { PageLogin } from "@/app/components/PageLogin";
+import { AUTH_CONFIG } from "@/app/config/auth";
 
-const socket = io("ws://ec2-3-87-237-75.compute-1.amazonaws.com:3002", {
-  reconnection: true,
-  reconnectionAttempts: Infinity,
-  reconnectionDelay: 1000,
-});
+/* ---------------- auth helpers ---------------- */
+
+const SESSION_KEY = "lift_operator_auth";
+
+function isSessionValid(): boolean {
+  const raw = localStorage.getItem(SESSION_KEY);
+  if (!raw) return false;
+
+  const { ts } = JSON.parse(raw);
+  const maxAge = AUTH_CONFIG.operator.ttlHours * 60 * 60 * 1000;
+
+  return Date.now() - ts < maxAge;
+}
+
+function saveSession() {
+  localStorage.setItem(SESSION_KEY, JSON.stringify({ ts: Date.now() }));
+}
+
+/* ---------------- component ---------------- */
 
 export default function LiftOperator() {
+  const [authenticated, setAuthenticated] = useState(false);
+
   const [isStopped, setIsStopped] = useState(false);
   const [optimalStops, setOptimalStops] = useState<number[]>([]);
-  const [connectionStatus, setConnectionStatus] = useState<
-    "ONLINE" | "RECONNECTING" | "OFFLINE"
-  >("RECONNECTING");
   const [activeAction, setActiveAction] = useState<
     "NONE" | "STOP" | "RESUME" | "DONE"
   >("NONE");
+  const [k, setK] = useState(3);
+  const [error, setError] = useState<string | null>(null);
+
+  const online = useSocketHeartbeat();
+
+  /* ---------------- auth check ---------------- */
 
   useEffect(() => {
-    const connectSocket = () => {
-      if (!socket.connected) {
-        setConnectionStatus("RECONNECTING");
-        socket.connect();
-      }
-    };
+    setAuthenticated(isSessionValid());
+  }, []);
 
-    socket.on("connect", () => {
-      setConnectionStatus("ONLINE");
-    });
+  const handleLogin = (u: string, p: string): boolean => {
+    if (
+      u === AUTH_CONFIG.operator.username &&
+      p === AUTH_CONFIG.operator.password
+    ) {
+      saveSession();
+      setAuthenticated(true);
+      return true;
+    }
+    return false;
+  };
 
-    socket.on("disconnect", () => {
-      setConnectionStatus("OFFLINE");
-      setTimeout(connectSocket, 1000);
-    });
+  /* ---------------- socket listeners ---------------- */
 
-    socket.on("connect_error", () => {
-      setConnectionStatus("OFFLINE");
-    });
+  useEffect(() => {
+    if (!authenticated) return;
 
-    socket.on("optimal stops", (stops: number[]) => {
-      setOptimalStops(stops);
+    socket.on("optimal_stops", setOptimalStops);
+    socket.on("toggle_input", ({ disabled }) => setIsStopped(disabled));
+
+    socket.on("error", ({ message }) => {
+      setError(message);
+      setTimeout(() => setError(null), 3000);
     });
 
     return () => {
-      socket.off("optimal stops");
-      socket.off("connect");
-      socket.off("disconnect");
-      socket.off("connect_error");
+      socket.off("optimal_stops");
+      socket.off("toggle_input");
+      socket.off("error");
     };
-  }, []);
+  }, [authenticated]);
+
+  /* ---------------- guards ---------------- */
+
+  const requireConnection = (): boolean => {
+    if (!online) {
+      setError("Not connected to server. Please try again.");
+      setTimeout(() => setError(null), 3000);
+      return false;
+    }
+    return true;
+  };
+
+  /* ---------------- actions ---------------- */
 
   const handleStopInput = () => {
-    setActiveAction(isStopped ? "RESUME" : "STOP");
-    setIsStopped(!isStopped);
-    socket.emit("toggle input", JSON.stringify({ status: !isStopped }));
-    setTimeout(() => setActiveAction("NONE"), 1000);
+    if (!requireConnection()) return;
+
+    const next = !isStopped;
+    setActiveAction(next ? "STOP" : "RESUME");
+    socket.emit("toggle_input", { disabled: next });
+
+    setTimeout(() => setActiveAction("NONE"), 800);
   };
 
   const handleDone = () => {
+    if (!requireConnection()) return;
+
     setActiveAction("DONE");
-    socket.emit("done", {});
-    setTimeout(() => setActiveAction("NONE"), 1000);
+    socket.emit("done", { k });
+
+    setTimeout(() => setActiveAction("NONE"), 800);
   };
 
+  /* ---------------- LOGIN GATE ---------------- */
+
+  if (!authenticated) {
+    return <PageLogin title="Lift Operator Login" onLogin={handleLogin} />;
+  }
+
+  /* ---------------- UI ---------------- */
+
   return (
-    <div className="flex flex-col items-center justify-center h-screen bg-gray-900 text-white p-6">
-      {/* HUD Display */}
-      <div className="w-full max-w-4xl border-2 border-blue-400 rounded-xl bg-gray-800/50 backdrop-blur-sm p-6 shadow-2xl shadow-blue-500/20">
+    <div className="flex items-center justify-center h-screen p-6 bg-[#0E1117]">
+      <div className="w-full max-w-4xl rounded-xl p-6 bg-[#161B22] text-[#E6EDF3] shadow-xl border border-[#30363D]">
         {/* Header */}
-        <div className="flex justify-between items-center mb-8 border-b border-blue-400/30 pb-4">
-          <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-blue-500">
-            LIFT OPERATOR CONTROL
+        <div className="flex justify-between items-center mb-4 pb-4 border-b border-[#30363D]">
+          <h1 className="text-2xl font-semibold tracking-wide">
+            Lift Operator Control
           </h1>
-          <div
-            className={`px-3 py-1 rounded-full text-sm font-mono flex items-center ${
-              connectionStatus === "ONLINE"
-                ? "bg-green-900/50 text-green-400 border border-green-400/30"
-                : connectionStatus === "RECONNECTING"
-                ? "bg-amber-900/50 text-amber-400 border border-amber-400/30"
-                : "bg-red-900/50 text-red-400 border border-red-400/30"
+
+          <span
+            className={`px-3 py-1 rounded-full text-sm font-medium ${
+              online ? "bg-[#238636] text-white" : "bg-[#D73A49] text-white"
             }`}
           >
-            <span
-              className={`w-2 h-2 rounded-full mr-2 ${
-                connectionStatus === "ONLINE"
-                  ? "bg-green-400 animate-pulse"
-                  : connectionStatus === "RECONNECTING"
-                  ? "bg-amber-400 animate-pulse"
-                  : "bg-red-400"
-              }`}
-            ></span>
-            {connectionStatus}
-          </div>
+            {online ? "Online" : "Offline"}
+          </span>
         </div>
 
-        {/* Main Control Panel */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          {/* Control Buttons */}
-          <div className="space-y-6">
-            <div className="space-y-2">
-              <h2 className="text-xl font-mono text-gray-400">
-                CONTROL ACTIONS
-              </h2>
-              <div className="grid grid-cols-2 gap-4">
-                <button
-                  onClick={handleStopInput}
-                  className={`relative overflow-hidden py-4 rounded-xl border-2 text-lg font-bold transition-all duration-300 ${
-                    isStopped
-                      ? "border-green-500 bg-green-900/20 hover:bg-green-900/30"
-                      : "border-red-500 bg-red-900/20 hover:bg-red-900/30"
-                  } ${
-                    activeAction === "STOP" || activeAction === "RESUME"
-                      ? "ring-4 ring-offset-2 ring-offset-gray-900 " +
-                        (isStopped ? "ring-green-500" : "ring-red-500")
-                      : ""
-                  }`}
-                >
-                  <span className="relative z-10">
-                    {isStopped ? "RESUME INPUT" : "STOP INPUT"}
-                  </span>
-                  <span
-                    className={`absolute inset-0 ${
-                      isStopped ? "bg-green-500/10" : "bg-red-500/10"
-                    }`}
-                  ></span>
-                </button>
+        {/* Error */}
+        {error && (
+          <div className="mb-4 rounded-lg bg-[#D73A49]/20 text-[#E6EDF3] px-4 py-2 text-sm text-center border border-[#D73A49]">
+            {error}
+          </div>
+        )}
 
-                <button
-                  onClick={handleDone}
-                  className={`relative overflow-hidden py-4 rounded-xl border-2 border-blue-500 bg-blue-900/20 text-lg font-bold hover:bg-blue-900/30 transition-all duration-300 ${
-                    activeAction === "DONE"
-                      ? "ring-4 ring-offset-2 ring-offset-gray-900 ring-blue-500"
-                      : ""
-                  }`}
-                >
-                  <span className="relative z-10">EXECUTE</span>
-                  <span className="absolute inset-0 bg-blue-500/10"></span>
-                </button>
-              </div>
+        {/* Main */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Controls */}
+          <div className="space-y-6 bg-[#21262D] rounded-xl p-5 border border-[#30363D]">
+            <h2 className="text-sm uppercase tracking-wide text-[#8B949E]">
+              Control Actions
+            </h2>
+
+            {/* k selector */}
+            <div>
+              <label className="block text-sm mb-1 text-[#8B949E]">
+                Number of Optimal Stops
+              </label>
+              <select
+                value={k}
+                onChange={(e) => setK(Number(e.target.value))}
+                className="w-full rounded-lg px-3 py-2 bg-[#0E1117] border border-[#30363D] text-[#E6EDF3]"
+              >
+                {[1, 2, 3].map((v) => (
+                  <option key={v} value={v}>
+                    {v}
+                  </option>
+                ))}
+              </select>
             </div>
 
-            {/* Status Indicators */}
-            <div className="space-y-2">
-              <h2 className="text-xl font-mono text-gray-400">SYSTEM STATUS</h2>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-4">
-                  <div className="text-sm font-mono text-gray-400">
-                    INPUT STATE
-                  </div>
-                  <div
-                    className={`text-2xl font-bold ${
-                      isStopped ? "text-red-400" : "text-green-400"
-                    }`}
-                  >
-                    {isStopped ? "LOCKED" : "ACTIVE"}
-                  </div>
-                </div>
-                <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-4">
-                  <div className="text-sm font-mono text-gray-400">
-                    LAST ACTION
-                  </div>
-                  <div className="text-2xl font-bold text-blue-400">
-                    {activeAction === "NONE" ? "STANDBY" : activeAction}
-                  </div>
-                </div>
-              </div>
+            <div className="grid grid-cols-2 gap-4">
+              <button
+                onClick={handleStopInput}
+                className={`py-4 rounded-lg font-semibold transition ${
+                  isStopped
+                    ? "bg-[#238636] hover:bg-[#2EA043]"
+                    : "bg-[#D73A49] hover:bg-[#E5533D]"
+                }`}
+              >
+                {isStopped ? "Resume Input" : "Stop Input"}
+              </button>
+
+              <button
+                onClick={handleDone}
+                className="py-4 rounded-lg font-semibold bg-[#1F6FEB] hover:bg-[#388BFD]"
+              >
+                Execute
+              </button>
             </div>
           </div>
 
-          {/* Optimal Stops Display */}
-          <div className="bg-gray-800/30 border-2 border-blue-400/30 rounded-xl p-6 flex flex-col">
-            <h2 className="text-xl font-mono text-gray-400 mb-4">
-              OPTIMIZATION DATA
+          {/* Output */}
+          <div className="rounded-xl p-6 bg-[#21262D] border border-[#30363D] flex flex-col">
+            <h2 className="text-sm uppercase tracking-wide text-[#8B949E] mb-4">
+              Optimized Lift Stops
             </h2>
+
             {optimalStops.length > 0 ? (
-              <div className="flex-1 flex flex-col justify-center">
-                <div className="text-sm font-mono text-blue-400 mb-2">
-                  CALCULATED STOPS
-                </div>
-                <div className="text-4xl font-bold text-white mb-6">
-                  {optimalStops.join(" → ")}
-                </div>
-                <div className="text-xs font-mono text-gray-500 mt-auto">
-                  Last updated: {new Date().toLocaleTimeString()}
-                </div>
+              <div className="text-3xl font-bold text-center text-[#E6EDF3]">
+                {optimalStops.join(" → ")}
               </div>
             ) : (
-              <div className="flex-1 flex items-center justify-center">
-                <div className="text-gray-500 italic">
-                  Awaiting optimization data...
-                </div>
+              <div className="flex-1 flex items-center justify-center text-[#8B949E] italic">
+                Awaiting optimization…
               </div>
             )}
           </div>
-        </div>
-
-        {/* Footer */}
-        <div className="mt-8 pt-4 border-t border-blue-400/20 text-xs font-mono text-gray-500 flex justify-between">
-          <div>SYSTEM v2.4.7</div>
-          <div>OPERATOR CONTROL PANEL</div>
-          <div>{new Date().toLocaleString()}</div>
         </div>
       </div>
     </div>
