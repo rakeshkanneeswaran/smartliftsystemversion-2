@@ -1,89 +1,76 @@
-import fastify, { FastifyInstance, FastifyLoggerInstance } from 'fastify';
-import fastifyIO from 'fastify-socket.io';
-import { Server, Socket } from 'socket.io';
-import { calculateOptimalLiftStops } from './k-means';
+import fastify from "fastify";
+import fastifyIO from "fastify-socket.io";
+import { Server, Socket } from "socket.io";
+import { calculateOptimalLiftStops } from "./k-means";
 
-const liveWebClients = new Set<Socket>();
+const server = fastify({ logger: true });
+const clients = new Set<Socket>();
 
-// Extend Fastify types to include io
-declare module 'fastify' {
+let currentK = 3;
+
+declare module "fastify" {
     interface FastifyInstance {
         io: Server;
     }
 }
-const server: FastifyInstance = fastify({ logger: true });
+
 server.register(fastifyIO, {
-    cors: {
-        origin: "*", // Allow all origins (change in production)
-        methods: ["GET", "POST"]
-    }
+    cors: { origin: "*", methods: ["GET", "POST"] },
 });
 
-// Basic route
-server.get('/', async (request, reply) => {
-    return { message: 'WebSocket server running' };
-});
+server.get("/health", async () => ({ status: "OK" }));
 
-server.get('/health', async (request, reply) => {
-    return { status: 'OK' };
-});
-
-// Socket.IO connection handler
 server.ready().then(() => {
-    server.io.on('connection', (socket: Socket) => {
-        liveWebClients.add(socket);
-        server.log.info(`Client connected: ${socket.id}`);
-        socket.on('request stops', (msg: string) => {
-            server.log.info(`msg: ${msg}`);
-            const data = JSON.parse(msg);
-            server.log.info(`Received request: ${data}`);
-            const floors = data.floors;
-            server.log.info(`Floors: ${floors}`);
-            const k = data.k;
-            const stops = calculateOptimalLiftStops(floors, k);
-            server.log.info(`Optimal stops: ${stops}`);
-            liveWebClients.forEach(client => {
-                liveWebClients.forEach(client => {
-                    client.emit('optimal stops', stops);
+    server.io.on("connection", (socket: Socket) => {
+        clients.add(socket);
+        server.log.info(`Connected: ${socket.id}`);
+
+        socket.on("request_stops", ({ floors }) => {
+            if (!socket.connected) return;
+
+            if (!Array.isArray(floors) || floors.length === 0) return;
+
+            const stops = calculateOptimalLiftStops(floors, currentK);
+            clients.forEach((c) => c.emit("optimal_stops", stops));
+        });
+
+        socket.on("toggle_input", ({ disabled }) => {
+            if (!socket.connected) {
+                socket.emit("error", {
+                    message: "Not connected to server. Please try again.",
                 });
+                return;
+            }
 
-            })
-        })
-        socket.on('toggle input', (msg: string) => {
-            server.log.info(`msg: ${msg}`);
-            const data = JSON.parse(msg);
-            server.log.info(`Received toggle: ${data}`);
-            const status = data.status;
-            liveWebClients.forEach(client => {
-                client.emit('toggle input', status);
-            });
-        })
+            clients.forEach((c) => c.emit("toggle_input", { disabled }));
+            socket.emit("ack", { action: "toggle_input" });
+        });
 
-        socket.on('done', () => {
-            liveWebClients.forEach(client => {
-                client.emit('done', {});
-            });
-        })
-        socket.on('disconnect', () => {
-            server.log.info(`Client disconnected: ${socket.id}`);
-            liveWebClients.delete(socket);
+        socket.on("done", ({ k }) => {
+            if (!socket.connected) {
+                socket.emit("error", {
+                    message: "Not connected to server. Please try again.",
+                });
+                return;
+            }
+
+            if (typeof k === "number" && k > 0) {
+                currentK = k;
+            }
+
+            clients.forEach((c) => c.emit("done"));
+            socket.emit("ack", { action: "done" });
+        });
+
+        socket.on("ping_alive", () => {
+            socket.emit("pong_alive");
+        });
+
+        socket.on("disconnect", () => {
+            clients.delete(socket);
+            server.log.info(`Disconnected: ${socket.id}`);
         });
     });
 });
 
-// Start server
-const start = async () => {
-    try {
-        const PORT = 3002;
-        await server.listen({
-            port: PORT as number,
-            host: '0.0.0.0',  // ← Critical for Docker
-        });
-        server.log.info(`Server listening on 3002`);
-    } catch (err) {
-        server.log.error(err);
-        process.exit(1);
-    }
-};
-
-start();
+server.listen({ port: 3002, host: "0.0.0.0" });
