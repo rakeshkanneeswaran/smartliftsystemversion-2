@@ -1,97 +1,59 @@
 "use client";
 
-import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { AUTH_CONFIG, Role } from "@/app/config/auth";
 
 export default function LandingPage() {
   const router = useRouter();
 
-  const [role, setRole] = useState<Role | null>(null);
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
-
-  const handleLogin = () => {
-    if (!role) {
-      setError("Please select a system first");
-      return;
-    }
-
-    const config = AUTH_CONFIG[role];
-
-    if (username !== config.username || password !== config.password) {
-      setError("Invalid credentials for selected system");
-      return;
-    }
-
-    // ✅ mark authenticated
-    sessionStorage.setItem("auth_ok", "true");
-    sessionStorage.setItem("role", role);
-
-    router.push(config.redirect);
-  };
-
   return (
-    <div className="flex items-center justify-center h-screen bg-slate-100">
-      <div className="w-full max-w-md bg-white rounded-xl shadow p-6">
-        <h1 className="text-2xl font-semibold text-center mb-6">
-          Smart Lift System
+    <div
+      className="flex items-center justify-center h-screen px-6"
+      style={{ backgroundColor: "#BDE8F5" }}
+    >
+      <div
+        className="w-full max-w-4xl rounded-2xl shadow-lg p-10 text-center"
+        style={{ backgroundColor: "#0F2854", color: "#E6EDF3" }}
+      >
+        {/* Institute Heading */}
+        <h1 className="text-2xl md:text-3xl font-bold mb-2">
+          SRM Institute of Science and Technology
         </h1>
 
-        {/* Step 1: Select Mode */}
-        <div className="mb-6 space-y-3">
-          {Object.entries(AUTH_CONFIG).map(([key, cfg]) => (
-            <button
-              key={key}
-              onClick={() => {
-                setRole(key as Role);
-                setError(null);
-              }}
-              className={`w-full py-2 rounded-lg border font-medium transition ${
-                role === key
-                  ? "bg-blue-600 text-white"
-                  : "bg-slate-50 hover:bg-slate-100"
-              }`}
-            >
-              {cfg.label}
-            </button>
-          ))}
+        <p className="text-sm md:text-base text-[#BDE8F5] opacity-90 mb-8">
+          Smart Lift Usage Optimization System
+        </p>
+
+        {/* Divider */}
+        <div className="h-px bg-white/20 mb-10" />
+
+        {/* Select Mode */}
+        <h2 className="text-lg font-semibold mb-6">Select Application Mode</h2>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* IoT App */}
+          <button
+            onClick={() => router.push("/iot-app")}
+            className="rounded-xl p-6 text-left transition hover:scale-[1.02]"
+            style={{ backgroundColor: "#1C4D8D" }}
+          >
+            <h3 className="text-lg font-bold mb-2">Smart IoT Display</h3>
+            <p className="text-sm opacity-80">
+              Floor input panel installed near the lift for passenger usage
+            </p>
+          </button>
+
+          {/* Operator App */}
+          <button
+            onClick={() => router.push("/lift-operator")}
+            className="rounded-xl p-6 text-left transition hover:scale-[1.02]"
+            style={{ backgroundColor: "#4988C4", color: "#0F2854" }}
+          >
+            <h3 className="text-lg font-bold mb-2">Lift Operator Console</h3>
+            <p className="text-sm opacity-80">
+              Control panel for operators to execute optimized lift stops
+            </p>
+          </button>
         </div>
-
-        {/* Step 2: Credentials */}
-        {role && (
-          <div className="space-y-4 mb-4">
-            <input
-              placeholder="Username"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              className="w-full border rounded-lg px-3 py-2"
-            />
-
-            <input
-              type="password"
-              placeholder="Password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full border rounded-lg px-3 py-2"
-            />
-          </div>
-        )}
-
-        {/* Error */}
-        {error && (
-          <div className="text-red-600 text-sm mb-4 text-center">{error}</div>
-        )}
-
-        {/* Continue */}
-        <button
-          onClick={handleLogin}
-          disabled={!role}
-          className="w-full bg-black text-white py-2 rounded-lg font-semibold disabled:opacity-50"
-        >
-          Continue
-        </button>
       </div>
     </div>
   );
