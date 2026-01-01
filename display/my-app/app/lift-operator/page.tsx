@@ -31,6 +31,7 @@ export default function LiftOperator() {
 
   const [isStopped, setIsStopped] = useState(false);
   const [optimalStops, setOptimalStops] = useState<number[]>([]);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [activeAction, setActiveAction] = useState<
     "NONE" | "STOP" | "RESUME" | "DONE"
   >("NONE");
