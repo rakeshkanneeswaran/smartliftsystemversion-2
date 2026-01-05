@@ -7,7 +7,7 @@ export const AUTH_CONFIG = {
     },
     iot: {
         username: "iot",
-        password: "iot123",
+        password: "1234",
         sessionKey: "auth_iot",
         ttlHours: 4,
     },

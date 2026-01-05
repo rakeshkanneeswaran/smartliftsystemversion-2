@@ -9,8 +9,8 @@ export default function LiftControl() {
   /* ================= AUTH STATE ================= */
 
   const [authenticated, setAuthenticated] = useState(false);
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
+  const username = AUTH_CONFIG.iot.username;
+  const [pin, setPin] = useState("");
   const [authError, setAuthError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -31,19 +31,38 @@ export default function LiftControl() {
     }
   }, []);
 
+  const handleDigitPress = (digit: number) => {
+    if (pin.length >= 4) return;
+    setPin((prev) => prev + digit);
+    setAuthError(null);
+  };
+
+  const handleBackspace = () => {
+    setPin((prev) => prev.slice(0, -1));
+  };
+
+  const handleClear = () => {
+    setPin("");
+    setAuthError(null);
+  };
+
   const handleLogin = () => {
-    if (
-      username === AUTH_CONFIG.iot.username &&
-      password === AUTH_CONFIG.iot.password
-    ) {
+    if (pin.length !== 4) {
+      setAuthError("Enter 4-digit PIN");
+      return;
+    }
+
+    if (pin === AUTH_CONFIG.iot.password) {
       sessionStorage.setItem(
         AUTH_CONFIG.iot.sessionKey,
         JSON.stringify({ loggedInAt: Date.now() })
       );
       setAuthenticated(true);
+      setPin("");
       setAuthError(null);
     } else {
-      setAuthError("Invalid username or password");
+      setAuthError("Invalid PIN");
+      setPin("");
     }
   };
 
@@ -96,34 +115,64 @@ export default function LiftControl() {
     return (
       <div className="h-screen flex items-center justify-center bg-[#0E1117]">
         <div className="w-full max-w-sm bg-[#161B22] border border-[#30363D] rounded-xl p-6">
-          <h1 className="text-lg font-semibold text-[#E6EDF3] text-center mb-4">
-            Lift IoT Control Login
+          <h1 className="text-lg font-semibold text-[#E6EDF3] text-center mb-2">
+            Lift IoT Control
           </h1>
 
-          <input
-            placeholder="Username"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            className="w-full mb-3 px-3 py-2 rounded-md bg-[#0E1117] border border-[#30363D] text-[#E6EDF3]"
-          />
+          <div className="text-center text-sm text-[#8B949E] mb-4">
+            User: <span className="font-semibold text-white">{username}</span>
+          </div>
 
-          <input
-            type="password"
-            placeholder="Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="w-full px-3 py-2 rounded-md bg-[#0E1117] border border-[#30363D] text-[#E6EDF3]"
-          />
+          {/* PIN DISPLAY */}
+          <div className="mb-4 text-center">
+            <div className="text-3xl tracking-widest text-[#E6EDF3]">
+              {"•".repeat(pin.length)}
+            </div>
+          </div>
+
+          {/* KEYPAD */}
+          <div className="grid grid-cols-3 gap-3 mb-4">
+            {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => (
+              <button
+                key={n}
+                onClick={() => handleDigitPress(n)}
+                className="py-4 rounded-lg bg-[#21262D] text-white text-xl active:scale-95"
+              >
+                {n}
+              </button>
+            ))}
+
+            <button
+              onClick={handleBackspace}
+              className="py-4 rounded-lg bg-[#30363D] text-white text-lg"
+            >
+              ⌫
+            </button>
+
+            <button
+              onClick={() => handleDigitPress(0)}
+              className="py-4 rounded-lg bg-[#21262D] text-white text-xl"
+            >
+              0
+            </button>
+
+            <button
+              onClick={handleClear}
+              className="py-4 rounded-lg bg-[#30363D] text-white text-lg"
+            >
+              C
+            </button>
+          </div>
 
           {authError && (
-            <div className="mt-3 text-sm text-center text-[#D73A49]">
+            <div className="text-center text-sm text-[#D73A49] mb-3">
               {authError}
             </div>
           )}
 
           <button
             onClick={handleLogin}
-            className="w-full mt-4 py-2 rounded-md bg-[#1F6FEB] hover:bg-[#388BFD] text-white font-semibold"
+            className="w-full py-2 rounded-md bg-[#1F6FEB] hover:bg-[#388BFD] text-white font-semibold"
           >
             Login
           </button>
@@ -136,7 +185,6 @@ export default function LiftControl() {
 
   return (
     <div className="h-screen flex flex-col bg-[#0E1117] overflow-hidden">
-      {/* Header */}
       <div className="flex justify-between items-center px-6 py-4 border-b border-[#30363D]">
         <h1 className="text-lg font-semibold text-[#E6EDF3]">
           Intelligent Lift Usage Optimization System
@@ -144,19 +192,18 @@ export default function LiftControl() {
 
         <span
           className={`px-3 py-1 rounded-full text-xs font-medium ${
-            online ? "bg-[#238636] text-white" : "bg-[#D73A49] text-white"
-          }`}
+            online ? "bg-[#238636]" : "bg-[#D73A49]"
+          } text-white`}
         >
           {online ? "ONLINE" : "OFFLINE"}
         </span>
       </div>
 
-      {/* Body */}
       <div className="flex flex-1 min-h-0 p-4 gap-4">
-        {/* Status Panel */}
-        <div className="w-[320px] flex-shrink-0">
+        {/* STATUS PANEL */}
+        <div className="w-[320px]">
           <div className="h-full bg-[#161B22] border border-[#30363D] rounded-xl p-4 flex flex-col">
-            <h2 className="text-xs uppercase tracking-wide text-[#8B949E] mb-4">
+            <h2 className="text-xs uppercase text-[#8B949E] mb-4">
               System Status
             </h2>
 
@@ -164,9 +211,7 @@ export default function LiftControl() {
               <div className="text-4xl font-bold text-[#D73A49]">
                 {selectedFloors.length}
               </div>
-              <div className="text-xs text-[#8B949E]">
-                {selectedFloors.length === 1 ? "Passenger" : "Passengers"}
-              </div>
+              <div className="text-xs text-[#8B949E]">Passengers</div>
             </div>
 
             {optimalStops.length > 0 && (
@@ -192,10 +237,10 @@ export default function LiftControl() {
           </div>
         </div>
 
-        {/* Floor Grid */}
-        <div className="flex-1 min-h-0">
+        {/* FLOOR GRID */}
+        <div className="flex-1">
           <div className="grid grid-cols-3 h-full gap-3">
-            {Array.from({ length: 15 }, (_, i) => i + 1).map((floor) => {
+            {Array.from({ length: 10 }, (_, i) => i + 1).map((floor) => {
               const selected = selectedFloors.includes(floor);
               const active = recentlyClicked === floor;
 
@@ -205,16 +250,15 @@ export default function LiftControl() {
                   onClick={() => toggleFloor(floor)}
                   disabled={disableInputs || !online}
                   className={`
-                    w-full h-full rounded-lg text-2xl font-semibold
-                    backdrop-blur-md border transition-all
+                    rounded-lg text-2xl font-semibold border transition-all
                     ${
                       disableInputs || !online
-                        ? "bg-[#161B22] text-[#6E7681] border-[#30363D] cursor-not-allowed"
+                        ? "bg-[#161B22] text-[#6E7681]"
                         : active
                         ? "bg-[#D73A49] text-white scale-95"
                         : selected
                         ? "bg-[#1F6FEB] text-white"
-                        : "bg-[#21262D]/70 text-[#E6EDF3] hover:bg-[#30363D]"
+                        : "bg-[#21262D] text-[#E6EDF3] hover:bg-[#30363D]"
                     }
                     border-[#30363D]
                   `}
