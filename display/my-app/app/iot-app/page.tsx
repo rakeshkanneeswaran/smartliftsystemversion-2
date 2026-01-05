@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from "react";
 import { socket } from "@/app/config/socket";
 import { useSocketHeartbeat } from "@/app/hooks/useSocketHeartbeat";
 import { AUTH_CONFIG } from "@/app/config/auth";
+const MAX_FLOORS = 15;
 
 export default function LiftControl() {
   /* ================= AUTH STATE ================= */
@@ -240,16 +241,17 @@ export default function LiftControl() {
         {/* FLOOR GRID */}
         <div className="flex-1">
           <div className="grid grid-cols-3 h-full gap-3">
-            {Array.from({ length: 10 }, (_, i) => i + 1).map((floor) => {
-              const selected = selectedFloors.includes(floor);
-              const active = recentlyClicked === floor;
+            {Array.from({ length: MAX_FLOORS }, (_, i) => i + 1).map(
+              (floor) => {
+                const selected = selectedFloors.includes(floor);
+                const active = recentlyClicked === floor;
 
-              return (
-                <button
-                  key={floor}
-                  onClick={() => toggleFloor(floor)}
-                  disabled={disableInputs || !online}
-                  className={`
+                return (
+                  <button
+                    key={floor}
+                    onClick={() => toggleFloor(floor)}
+                    disabled={disableInputs || !online}
+                    className={`
                     rounded-lg text-2xl font-semibold border transition-all
                     ${
                       disableInputs || !online
@@ -262,11 +264,12 @@ export default function LiftControl() {
                     }
                     border-[#30363D]
                   `}
-                >
-                  {floor}
-                </button>
-              );
-            })}
+                  >
+                    {floor}
+                  </button>
+                );
+              }
+            )}
           </div>
         </div>
       </div>
