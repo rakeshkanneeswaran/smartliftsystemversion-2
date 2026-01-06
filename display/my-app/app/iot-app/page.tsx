@@ -217,12 +217,29 @@ export default function LiftControl() {
 
             {optimalStops.length > 0 && (
               <div className="mt-auto bg-[#21262D] border border-[#30363D] rounded-lg p-3 text-center">
-                <div className="text-xs text-[#8B949E] mb-1">Optimal Stops</div>
-                <div className="text-base font-semibold text-[#E6EDF3]">
+                <div className="text-2xl text-[#8B949E] mb-1">
+                  Optimal Stops
+                </div>
+                <div className="text-2xl font-semibold text-[#E6EDF3]">
                   {optimalStops.join(", ")}
                 </div>
               </div>
             )}
+            {/* Department Logo - always at the bottom */}
+            <div className="pt-4 border-t border-[#30363D]">
+              <div className="flex flex-col items-center justify-center">
+                {/* Logo Image */}
+                <img
+                  src="/ctechlogo.jpeg"
+                  alt="Department Logo"
+                  className="h-30 w-auto mb-2"
+                />
+                {/* Department Name */}
+                <div className="text-xs text-[#8B949E]">
+                  Department of Computing Technoloiges
+                </div>
+              </div>
+            </div>
 
             {disableInputs && (
               <div className="mt-3 text-center text-[#E3B341] text-xs">
