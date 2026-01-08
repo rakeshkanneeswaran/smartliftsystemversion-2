@@ -15,8 +15,13 @@ declare module "fastify" {
 }
 
 server.register(fastifyIO, {
-    cors: { origin: "*", methods: ["GET", "POST"] },
+    path: "/socket.io",
+    cors: {
+        origin: "*",
+        methods: ["GET", "POST"],
+    },
 });
+
 
 server.get("/health", async () => ({ status: "OK" }));
 
