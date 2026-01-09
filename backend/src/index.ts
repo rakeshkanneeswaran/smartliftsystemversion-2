@@ -2,6 +2,8 @@ import fastify from "fastify";
 import fastifyIO from "fastify-socket.io";
 import { Server, Socket } from "socket.io";
 import { calculateOptimalLiftStops } from "./k-means";
+import { logLiftDecision } from "./liftDecisionLogger";
+import { countFloorClicks } from "./floorCounter";
 
 const server = fastify({ logger: true });
 const clients = new Set<Socket>();
@@ -31,12 +33,22 @@ server.ready().then(() => {
         server.log.info(`Connected: ${socket.id}`);
 
         socket.on("request_stops", ({ floors }) => {
-            if (!socket.connected) return;
-
             if (!Array.isArray(floors) || floors.length === 0) return;
 
-            const stops = calculateOptimalLiftStops(floors, currentK);
-            clients.forEach((c) => c.emit("optimal_stops", stops));
+            // Count student clicks
+            const floorClicks = countFloorClicks(floors);
+
+            // Backend decides stops
+            const decidedStops = calculateOptimalLiftStops(floors, currentK);
+
+            // Log decision
+            logLiftDecision({
+                floorClicks,
+                decidedStops,
+            });
+
+            // Send result to all clients
+            clients.forEach((c) => c.emit("optimal_stops", decidedStops));
         });
 
         socket.on("toggle_input", ({ disabled }) => {

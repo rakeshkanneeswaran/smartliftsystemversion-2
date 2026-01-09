@@ -1,1 +1,1 @@
-{"root":["./src/index.ts","./src/k-means.ts"],"version":"5.8.2"}
+{"root":["./src/floorcounter.ts","./src/index.ts","./src/k-means.ts","./src/liftdecisionlogger.ts"],"version":"5.8.2"}
