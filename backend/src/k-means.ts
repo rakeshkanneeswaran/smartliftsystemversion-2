@@ -48,5 +48,5 @@ export function calculateOptimalLiftStops(
         });
     }
 
-    return stops.sort((a, b) => a - b);
+    return [...new Set(stops)].sort((a, b) => a - b);
 }

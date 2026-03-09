@@ -1,13 +1,13 @@
 export const AUTH_CONFIG = {
     operator: {
-        username: "operator",
-        password: "operator123",
+        username: "2026",
+        password: "2026",
         sessionKey: "auth_operator",
         ttlHours: 4,
     },
     iot: {
         username: "iot",
-        password: "1234",
+        password: "2026",
         sessionKey: "auth_iot",
         ttlHours: 4,
     },
